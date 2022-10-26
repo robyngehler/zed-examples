@@ -29,32 +29,50 @@ import pyzed.sl as sl
 
 if __name__ == "__main__":
     print("Running Depth Sensing sample ... Press 'Esc' to quit")
-
-    init = sl.InitParameters(camera_resolution=sl.RESOLUTION.HD720,
-                                 depth_mode=sl.DEPTH_MODE.ULTRA,
+# perfomance parameters
+    init = sl.InitParameters(camera_resolution=sl.RESOLUTION.VGA,
+                                 camera_fps=100,
+                                 depth_mode=sl.DEPTH_MODE.PERFORMANCE,
                                  coordinate_units=sl.UNIT.METER,
                                  coordinate_system=sl.COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP)
+                                         
+    init.depth_minimum_distance = 0.1
+    init.depth_maximum_distance = 20
+    init.svo_real_time_mode = True
+    
     zed = sl.Camera()
     status = zed.open(init)
     if status != sl.ERROR_CODE.SUCCESS:
         print(repr(status))
         exit()
-
+    
     res = sl.Resolution()
-    res.width = 720
-    res.height = 404
+    image = sl.Mat()
+    depth = sl.Mat()
+    point_cloud = sl.Mat()
 
     camera_model = zed.get_camera_information().camera_model
-    # Create OpenGL viewer
-    viewer = gl.GLViewer()
-    viewer.init(len(sys.argv), sys.argv, camera_model, res)
 
-    point_cloud = sl.Mat(res.width, res.height, sl.MAT_TYPE.F32_C4, sl.MEM.CPU)
 
-    while viewer.is_available():
+    while True:
         if zed.grab() == sl.ERROR_CODE.SUCCESS:
-            zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA,sl.MEM.CPU, res)
-            viewer.updateData(point_cloud)
+            current_fps = zed.get_current_fps()
+            print("current fps: ", current_fps)
+            l_image_timestamp = zed.get_timestamp(sl.TIME_REFERENCE.IMAGE)
+            print("timestamp: ", l_image_timestamp)
+            zed.retrieve_image(image, sl.VIEW.LEFT) # Get the left image
+            zed.retrieve_measure(depth, sl.MEASURE.DEPTH) # Get the depth Matrix
+            
+            # Get and print distance value in mm at the center of the image
+            # We measure the distance camera - object using Euclidean distance
+            x = image.get_width() / 2
+            y = image.get_height() / 2
+            point_cloud_value = point_cloud.get_value(x, y)
+            distance = math.sqrt(point_cloud_value[0]*point_cloud_value[0] + point_cloud_value[1]*point_cloud_value[1] + point_cloud_value[2]*point_cloud_value[2])
+            printf("Distance to Camera at (", x, y, "): ", distance, "mm")
+            
+            print("duration: ", zed.get_nanoseconds - l_image_timestamp)
+            
+          
 
-    viewer.exit()
     zed.close()
