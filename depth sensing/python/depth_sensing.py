@@ -19,8 +19,7 @@
 ########################################################################
 
 """
-    This sample demonstrates how to capture a live 3D point cloud   
-    with the ZED SDK and display the result in an OpenGL window.    
+    This sample demonstrates how to measure depth and performance    
 """
 
 import sys
